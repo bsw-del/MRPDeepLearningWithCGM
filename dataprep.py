@@ -92,11 +92,31 @@ class DataCleaning:
             reshapedX.append(X[i:i+step_length])
         return reshapedX,y
 
-    def SampleValidSequences(self, numTrainSequences=200, numTestSequences=40, filename='/Users/bsw/Documents/MRPLocal/DATA/CGM_Processed.csv', seed=1):
-        random.seed(seed)
+    def SampleValidSequences(self, numTrainSequences=200, numTestSequences=40, numTrainClients=5, numTestClients=2, seed=1):
+        filename=self.filename
         samplingDF = pd.read_csv(filename)
-        new_df = samplingDF.groupby('series_id').count()
+        ## Section to clean the data first
+        ## drop unnecessary columns to save on space / compute
+        samplingDF.drop(['Unnamed: 0.1','index','Unnamed: 0','RecordType','Value'], inplace=True, axis=1)
+
+        ## cleaning up the data -- Resetting data types
+        samplingDF['DDate']=pd.to_datetime(samplingDF['DDate'])
+        samplingDF['DeviceDtTm']=pd.to_datetime(samplingDF['DeviceDtTm'])
+        samplingDF.SortOrd=samplingDF.SortOrd.astype(int)
+
+        ## cleaning data - removing series where not enough samples to learn / predict
+        a=pd.DataFrame(samplingDF).groupby(['PtID','series_id'])['RecID'].count())
+        a.reset_index(inplace=True)
+        samplingDF = samplingDF[~samplingDF.series_id.isin(a.series_id[a.RecID<=25].to_list())] ## Remove series where there will be no ability to forecast more than 5 datapoints
+        #CGMDf.shape[0]
+        ## 1 950 448 -- samples remaining
+
+        random.seed(seed)
         
+        new_df = samplingDF.groupby('series_id').count()
+        ct_df = samplingDF.groupby('PtID').count()
+
+        ## use valid_Sequences if you want to only run with long sequences - might not be appropriate removal of short sequences
         valid_sequences = new_df[new_df['index']>=75].index.to_numpy()
         train_index = valid_sequences[random.sample(range(0,len(valid_sequences)),numTrainSequences)]
         test_index = valid_sequences[random.sample(range(0,len(valid_sequences)),numTestSequences)]
