@@ -105,7 +105,7 @@ class DataCleaning:
         samplingDF.SortOrd=samplingDF.SortOrd.astype(int)
 
         ## cleaning data - removing series where not enough samples to learn / predict
-        a=pd.DataFrame(samplingDF).groupby(['PtID','series_id'])['RecID'].count())
+        a=pd.DataFrame(samplingDF).groupby(['PtID','series_id'])['RecID'].count()
         a.reset_index(inplace=True)
         samplingDF = samplingDF[~samplingDF.series_id.isin(a.series_id[a.RecID<=25].to_list())] ## Remove series where there will be no ability to forecast more than 5 datapoints
         #CGMDf.shape[0]
