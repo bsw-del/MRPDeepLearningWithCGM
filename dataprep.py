@@ -14,16 +14,16 @@ warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 class DataCleaning:
 
-    def __init__(self, filename='/Users/bsw/Documents/MRPLocal/DATA/DeviceCGM.txt',path='/Users/bsw/Documents/MRPLocal/DATA/'):
-        self.filename = filename
+    def __init__(self, filename='DeviceCGM.txt',path='/Users/bsw/Documents/MRPLocal/DATA/'):
         self.path = path
+        self.filename = filename
+        self.file_source = os.path.join(path, filename)
 
     def import_and_store(self):
         ''' Input is a txt file with pipe delimiter and specified columns for the specific diabetes dataset
         Returns a list of smaller CSVs (12) shards are created from the original'''
         ## file downloaded from ...
-        path = self.filename
-
+        
         ## detect file encoding
         #with open(path,'rb') as f:
         #  rawdata = b''.join([f.readline() for _ in range(20)])
@@ -31,13 +31,15 @@ class DataCleaning:
         ##--> File encoding - UTF-16
 
         ## Import file to dataframe
-        cgmData = pd.read_csv(self.filename, delimiter="|", encoding='UTF-16')
+        cgmData = pd.read_csv(self.file_source, delimiter="|", encoding='UTF-16')
         
         ## Create shards for easier data management
         fileNames = []
+        target = 'CGM_'
+        file_write = os.path.join(self.path,target)
         for id, df_i in  enumerate(np.array_split(cgmData, 12)):
-            df_i.to_csv('/Users/bsw/Documents/MRPLocal/DATA/CGM_{id}.csv'.format(id=id))
-            fileNames.append('/Users/bsw/Documents/MRPLocal/DATA/CGM_{id}.csv'.format(id=id))
+            df_i.to_csv(file_write+'{id}.csv'.format(id=id))
+            fileNames.append(file_write+'{id}.csv'.format(id=id))
 
         ## fileNames stores smaller shards of data
         return fileNames
