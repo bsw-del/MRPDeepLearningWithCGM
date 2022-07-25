@@ -13,6 +13,7 @@ warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 
 class DataCleaning:
+    ''' Class to do initial reading and formatting of the source data file'''
 
     def __init__(self, filename='DeviceCGM.txt',path='/Users/bsw/Documents/MRPLocal/DATA/'):
         self.path = path
@@ -86,69 +87,82 @@ class DataCleaning:
 
         dfs.to_csv(filename)
 
+
+
+class DataSampling:
+
+    def __init__(self, filename='CGM_Processed.csv',path='/Users/bsw/Documents/MRPLocal/DATA/'):
+        self.path = path
+        self.filename = filename
+        self.file_source = os.path.join(path, filename)
+        
+        self.samplingDF = pd.read_csv(self.file_source)
+        self.samplingDF.drop(['Unnamed: 0.1','index','Unnamed: 0','RecordType','Value'], inplace=True, axis=1)
+
+        ## a few clean-up items
+        self.samplingDF['DDate']=pd.to_datetime(self.samplingDF['DDate'])
+        self.samplingDF['DeviceDtTm']=pd.to_datetime(self.samplingDF['DeviceDtTm'])
+        self.samplingDF.SortOrd=self.samplingDF.SortOrd.astype(int)
+
+        ## cleaning data - removing series where not enough samples to learn / predict
+        a=pd.DataFrame((self.samplingDF).groupby(['PtID','series_id'])['RecID'].count())
+        a.reset_index(inplace=True)
+        self.samplingDF = self.samplingDF[~self.samplingDF.series_id.isin(a.series_id[a.RecID<=25].to_list())] 
+
     def seriesToTimeSeries(self, X, step_length=8,forecast_dist=6):
         y=[]
         reshapedX = []
         for i in range(len(X)-forecast_dist-step_length):
             y.append(X[i+step_length+forecast_dist])
             reshapedX.append(X[i:i+step_length])
-        return reshapedX,y
+        return reshapedX, y
 
-    def SampleValidSequences(self, numTrainSequences=200, numTestSequences=40, numTrainClients=5, numTestClients=2, seed=1):
-        filename=self.filename
-        samplingDF = pd.read_csv(filename)
-        ## Section to clean the data first
-        ## drop unnecessary columns to save on space / compute
-        samplingDF.drop(['Unnamed: 0.1','index','Unnamed: 0','RecordType','Value'], inplace=True, axis=1)
+    def shapeSeriesFromDF(self,df,indexForSelection):
+        
+        an_X = df[df['series_id']==indexForSelection[0]].ValueMMOL.tolist()
+        an_X, y = self.seriesToTimeSeries(an_X)
+        X=an_X
+        y=y
 
+        for i in indexForSelection[1:]:
+            an_X = df[df['series_id']==i].ValueMMOL.tolist()
+            an_X, y = self.seriesToTimeSeries(an_X)
+            
+            X = X+an_X
+            y = y+y
+        return X,y
+
+
+
+    def SampleValidSequences(self, num_clients=8, test_split=0.3,seed=1):
+        samplingDF = self.samplingDF
         ## cleaning up the data -- Resetting data types
-        samplingDF['DDate']=pd.to_datetime(samplingDF['DDate'])
-        samplingDF['DeviceDtTm']=pd.to_datetime(samplingDF['DeviceDtTm'])
-        samplingDF.SortOrd=samplingDF.SortOrd.astype(int)
-
-        ## cleaning data - removing series where not enough samples to learn / predict
-        a=pd.DataFrame(samplingDF).groupby(['PtID','series_id'])['RecID'].count()
-        a.reset_index(inplace=True)
-        samplingDF = samplingDF[~samplingDF.series_id.isin(a.series_id[a.RecID<=25].to_list())] ## Remove series where there will be no ability to forecast more than 5 datapoints
-        #CGMDf.shape[0]
-        ## 1 950 448 -- samples remaining
-
+        
         random.seed(seed)
         
         new_df = samplingDF.groupby('series_id').count()
         ct_df = samplingDF.groupby('PtID').count()
 
-        ## use valid_Sequences if you want to only run with long sequences - might not be appropriate removal of short sequences
-        valid_sequences = new_df[new_df['index']>=75].index.to_numpy()
-        train_index = valid_sequences[random.sample(range(0,len(valid_sequences)),numTrainSequences)]
-        test_index = valid_sequences[random.sample(range(0,len(valid_sequences)),numTestSequences)]
+        client_list = ct_df.index.to_numpy()
+        cl_ind = client_list[random.sample(range(0,len(client_list)),num_clients)] ##clientids to use for the training
 
-        
-        an_X = samplingDF[samplingDF['series_id']==train_index[0]].ValueMMOL.tolist()
-        an_X, y = self.seriesToTimeSeries(an_X)
-        X_train=an_X
-        y_train=y
+        cl_df = samplingDF[samplingDF.PtID.isin(cl_ind)] ## list of all samples relative to these clients
 
-        for i in train_index[1:]:
-            an_X = samplingDF[samplingDF['series_id']==i].ValueMMOL.tolist()
-            an_X, y = self.seriesToTimeSeries(an_X)
-            
-            X_train = X_train+an_X
-            y_train = y_train+y
+        series_select = cl_df.groupby('series_id').count()
+        series_select = series_select.sample(frac=1)
+        series_select = series_select.index.to_list()
 
-        
-        an_X = samplingDF[samplingDF['series_id']==test_index[0]].ValueMMOL.tolist()
-        an_X,y = self.seriesToTimeSeries(an_X)
-        X_test=an_X
-        y_test = y
+        index_cut = int((1-test_split) * len(series_select))
+        train_index = series_select[0:index_cut]
+        test_index=series_select[index_cut:]
 
-        for i in test_index[1:]:
-            an_X = samplingDF[samplingDF['series_id']==i].ValueMMOL.tolist()
-            an_X, y = self.seriesToTimeSeries(an_X)
-            
-            X_test = X_test+an_X
-            y_test = y_test+y
+        training_df = samplingDF[samplingDF.series_id.isin(train_index)]
+        testing_df = samplingDF[samplingDF.series_id.isin(test_index)]
 
+        ## build training dataset
+        X_train,y_train = self.shapeSeriesFromDF(training_df,train_index)
+        X_test,y_test = self.shapeSeriesFromDF(testing_df,test_index)
 
         return X_train, X_test, y_train, y_test
 
+    
