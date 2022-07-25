@@ -121,16 +121,16 @@ class DataSampling:
         
         an_X = df[df['series_id']==indexForSelection[0]].ValueMMOL.tolist()
         an_X, y = self.seriesToTimeSeries(an_X)
-        X=an_X
-        y=y
+        X_ret=an_X
+        y_ret=y
 
         for i in indexForSelection[1:]:
             an_X = df[df['series_id']==i].ValueMMOL.tolist()
             an_X, y = self.seriesToTimeSeries(an_X)
             
-            X = X+an_X
-            y = y+y
-        return X,y
+            X_ret = X_ret+an_X
+            y_ret = y_ret+y
+        return X_ret,y_ret
 
 
 
