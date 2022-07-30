@@ -138,7 +138,7 @@ class DataSampling:
         samplingDF = self.samplingDF
         ## cleaning up the data -- Resetting data types
         
-        random.seed(seed)
+        #random.seed(seed)
         
         new_df = samplingDF.groupby('series_id').count()
         ct_df = samplingDF.groupby('PtID').count()
