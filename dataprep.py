@@ -109,24 +109,25 @@ class DataSampling:
         a.reset_index(inplace=True)
         self.samplingDF = self.samplingDF[~self.samplingDF.series_id.isin(a.series_id[a.RecID<=25].to_list())] 
 
-    def seriesToTimeSeries(self, X, step_length=8,forecast_dist=6):
+    #def seriesToTimeSeries(self, X, step_length=8,forecast_dist=6):
+    def seriesToTimeSeries(self, X, step_length=8,fore_dist=6):
         y=[]
         reshapedX = []
-        for i in range(len(X)-forecast_dist-step_length):
-            y.append(X[i+step_length+forecast_dist])
+        for i in range(len(X)-fore_dist-step_length):
+            y.append(X[i+step_length+fore_dist])
             reshapedX.append(X[i:i+step_length])
         return reshapedX, y
 
-    def shapeSeriesFromDF(self,df,indexForSelection):
-        
+    def shapeSeriesFromDF(self,df,indexForSelection, reading_length,forecast_dist):
+    #def shapeSeriesFromDF(self,df,indexForSelection):    
         an_X = df[df['series_id']==indexForSelection[0]].ValueMMOL.tolist()
-        an_X, y = self.seriesToTimeSeries(an_X)
+        an_X, y = self.seriesToTimeSeries(an_X) 
         X_ret=an_X
         y_ret=y
 
         for i in indexForSelection[1:]:
             an_X = df[df['series_id']==i].ValueMMOL.tolist()
-            an_X, y = self.seriesToTimeSeries(an_X)
+            an_X, y = self.seriesToTimeSeries(an_X,step_length=reading_length,fore_dist=forecast_dist)
             
             X_ret = X_ret+an_X
             y_ret = y_ret+y
@@ -134,13 +135,14 @@ class DataSampling:
 
 
 
-    def SampleValidSequences(self, num_clients=8, test_split=0.3,seed=1):
+    def SampleValidSequences(self, num_clients=8, test_split=0.3, reading_length=8, forecast_dist=6):
+    #def SampleValidSequences(self, num_clients=8, test_split=0.3,seed=1):
         samplingDF = self.samplingDF
         ## cleaning up the data -- Resetting data types
         
         #random.seed(seed)
         
-        new_df = samplingDF.groupby('series_id').count()
+        #new_df = samplingDF.groupby('series_id').count()
         ct_df = samplingDF.groupby('PtID').count()
 
         client_list = ct_df.index.to_numpy()
@@ -160,8 +162,10 @@ class DataSampling:
         testing_df = samplingDF[samplingDF.series_id.isin(test_index)]
 
         ## build training dataset
-        X_train,y_train = self.shapeSeriesFromDF(training_df,train_index)
-        X_test,y_test = self.shapeSeriesFromDF(testing_df,test_index)
+        X_train,y_train = self.shapeSeriesFromDF(training_df,train_index,reading_length,forecast_dist)
+        X_test,y_test = self.shapeSeriesFromDF(testing_df,test_index, reading_length,forecast_dist)
+        #X_train,y_train = self.shapeSeriesFromDF(training_df,train_index)
+        #X_test,y_test = self.shapeSeriesFromDF(testing_df,test_index)
 
         return X_train, X_test, y_train, y_test
 
