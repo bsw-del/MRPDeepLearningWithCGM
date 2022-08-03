@@ -111,6 +111,7 @@ class DataSampling:
 
     #def seriesToTimeSeries(self, X, step_length=8,forecast_dist=6):
     def seriesToTimeSeries(self, X, step_length=8,fore_dist=6):
+        print ('cc: ',step_length,fore_dist)
         y=[]
         reshapedX = []
         for i in range(len(X)-fore_dist-step_length):
@@ -120,6 +121,7 @@ class DataSampling:
 
     def shapeSeriesFromDF(self,df,indexForSelection, reading_length,forecast_dist):
     #def shapeSeriesFromDF(self,df,indexForSelection):    
+        print ('bb: ',reading_length,forecast_dist)
         an_X = df[df['series_id']==indexForSelection[0]].ValueMMOL.tolist()
         an_X, y = self.seriesToTimeSeries(an_X) 
         X_ret=an_X
@@ -137,6 +139,7 @@ class DataSampling:
 
     def SampleValidSequences(self, num_clients=8, test_split=0.3, reading_length=8, forecast_dist=6):
     #def SampleValidSequences(self, num_clients=8, test_split=0.3,seed=1):
+        print ('aa: ',reading_length,forecast_dist)
         samplingDF = self.samplingDF
         ## cleaning up the data -- Resetting data types
         
