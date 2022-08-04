@@ -172,4 +172,75 @@ class DataSampling:
 
         return X_train, X_test, y_train, y_test
 
+    #def seriesToTimeSeries(self, X, step_length=8,forecast_dist=6):
+    def seriesToTimeSeriesMulti(self, X, Y, step_length,fore_dist):
+        #print ('cc: ',step_length,fore_dist)
+        y=[]
+        reshapedX = []
+        for i in range(len(Y)-fore_dist-step_length):
+            y.append(Y[i+step_length+fore_dist])
+            reshapedX.append(X[i:i+step_length])
+        return reshapedX, y
+
+    def shapeSeriesFromDFMulti(self,df,indexForSelection, reading_length,forecast_dist):
+    #def shapeSeriesFromDF(self,df,indexForSelection):    
+        #print ('bb: ',reading_length,forecast_dist)
+        an_X = df[df['series_id']==indexForSelection[0]].ValueMMOL.tolist()
+        n1_X = df[df['series_id']==indexForSelection[0]].hrOfDay.tolist()
+        mult_X = np.column_stack((an_X,n1_X))
+        an_X, y = self.seriesToTimeSeriesMulti(mult_X,an_X,step_length=reading_length,fore_dist=forecast_dist) 
+        X_ret=an_X
+        y_ret=y
+
+        for i in indexForSelection[1:]:
+            an_X = df[df['series_id']==i].ValueMMOL.tolist()
+            n1_X = df[df['series_id']==i].hrOfDay.tolist()
+            mult_X = np.column_stack((an_X,n1_X))
+            an_X, y = self.seriesToTimeSeriesMulti(mult_X,an_X,step_length=reading_length,fore_dist=forecast_dist)
+            
+            X_ret = X_ret+an_X
+            y_ret = y_ret+y
+        #print (X_ret)
+        return X_ret,y_ret
+        
+
+
+    def SampleValidSequencesMulti(self, reading_length, forecast_dist, num_clients=8, test_split=0.3):
+    #def SampleValidSequences(self, num_clients=8, test_split=0.3,seed=1):
+        #print ('aa: ',reading_length,forecast_dist)
+        samplingDF = self.samplingDF
+        ## cleaning up the data -- Resetting data types
+        
+        #random.seed(seed)
+        
+        #new_df = samplingDF.groupby('series_id').count()
+        ct_df = samplingDF.groupby('PtID').count()
+
+        client_list = ct_df.index.to_numpy()
+        cl_ind = client_list[random.sample(range(0,len(client_list)),num_clients)] ##clientids to use for the training
+
+        cl_df = samplingDF[samplingDF.PtID.isin(cl_ind)] ## list of all samples relative to these clients
+
+        series_select = cl_df.groupby('series_id').count()
+        series_select = series_select.sample(frac=1)
+        series_select = series_select.index.to_list()
+
+        index_cut = int((1-test_split) * len(series_select))
+        train_index = series_select[0:index_cut]
+        test_index=series_select[index_cut:]
+
+
+        training_df = samplingDF[samplingDF.series_id.isin(train_index)]
+        testing_df = samplingDF[samplingDF.series_id.isin(test_index)]
+        
+        training_df['hrOfDay']=training_df['DeviceDtTm'].dt.hour
+        testing_df['hrOfDay']=testing_df['DeviceDtTm'].dt.hour
+
+        ## build training dataset
+        X_train,y_train = self.shapeSeriesFromDFMulti(training_df,train_index,reading_length,forecast_dist)
+        X_test,y_test = self.shapeSeriesFromDFMulti(testing_df,test_index, reading_length,forecast_dist)
+        #X_train,y_train = self.shapeSeriesFromDF(training_df,train_index)
+        #X_test,y_test = self.shapeSeriesFromDF(testing_df,test_index)
+
+        return X_train, X_test, y_train, y_test
     
