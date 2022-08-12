@@ -8,6 +8,7 @@ import random
 import warnings
 
 from pandas.core.common import SettingWithCopyWarning
+from pyrsistent import T
 
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
@@ -186,7 +187,7 @@ class DataSampling:
     #def shapeSeriesFromDF(self,df,indexForSelection):    
         #print ('bb: ',reading_length,forecast_dist)
         an_X = df[df['series_id']==indexForSelection[0]].ValueMMOL.tolist()
-        n1_X = df[df['series_id']==indexForSelection[0]].hrOfDay.tolist()
+        n1_X = df[df['series_id']==indexForSelection[0]].daySection.tolist()
         mult_X = np.column_stack((an_X,n1_X))
         an_X, y = self.seriesToTimeSeriesMulti(mult_X,an_X,step_length=reading_length,fore_dist=forecast_dist) 
         X_ret=an_X
@@ -194,7 +195,7 @@ class DataSampling:
 
         for i in indexForSelection[1:]:
             an_X = df[df['series_id']==i].ValueMMOL.tolist()
-            n1_X = df[df['series_id']==i].hrOfDay.tolist()
+            n1_X = df[df['series_id']==i].daySection.tolist()
             mult_X = np.column_stack((an_X,n1_X))
             an_X, y = self.seriesToTimeSeriesMulti(mult_X,an_X,step_length=reading_length,fore_dist=forecast_dist)
             
@@ -203,7 +204,16 @@ class DataSampling:
         #print (X_ret)
         return X_ret,y_ret
         
-
+    def daySegment(row):
+    
+        if row.hrOfDay < 7: 
+            return 0 
+        elif row.hrOfDay < 7: 
+            return 1 
+        elif row.hrOfDay <18: 
+            return 2 
+        else: 
+            return 0
 
     def SampleValidSequencesMulti(self, reading_length, forecast_dist, num_clients=8, test_split=0.3):
     #def SampleValidSequences(self, num_clients=8, test_split=0.3,seed=1):
@@ -235,6 +245,9 @@ class DataSampling:
         
         training_df['hrOfDay']=training_df['DeviceDtTm'].dt.hour
         testing_df['hrOfDay']=testing_df['DeviceDtTm'].dt.hour
+
+        training_df['daySection']=training_df.apply(daySegment,axis=1)
+        testing_df['daySection']=testing_df.apply(daySegment,axis=1)
 
         ## build training dataset
         X_train,y_train = self.shapeSeriesFromDFMulti(training_df,train_index,reading_length,forecast_dist)
