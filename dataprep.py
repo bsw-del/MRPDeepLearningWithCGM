@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import chardet
+#import chardet
 from matplotlib import pyplot as plt
 import os
 from random import randrange
@@ -8,7 +8,7 @@ import random
 import warnings
 
 from pandas.core.common import SettingWithCopyWarning
-from pyrsistent import T
+#from pyrsistent import T
 
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
@@ -204,7 +204,7 @@ class DataSampling:
         #print (X_ret)
         return X_ret,y_ret
         
-    def daySegment(row):
+    def daySegment(self,row):
     
         if row.hrOfDay < 7: 
             return 0 
@@ -246,8 +246,8 @@ class DataSampling:
         training_df['hrOfDay']=training_df['DeviceDtTm'].dt.hour
         testing_df['hrOfDay']=testing_df['DeviceDtTm'].dt.hour
 
-        training_df['daySection']=training_df.apply(daySegment,axis=1)
-        testing_df['daySection']=testing_df.apply(daySegment,axis=1)
+        training_df['daySection']=training_df.apply(self.daySegment,axis=1)
+        testing_df['daySection']=testing_df.apply(self.daySegment,axis=1)
 
         ## build training dataset
         X_train,y_train = self.shapeSeriesFromDFMulti(training_df,train_index,reading_length,forecast_dist)
